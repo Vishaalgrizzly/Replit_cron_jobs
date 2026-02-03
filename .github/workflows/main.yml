@@ -2,7 +2,7 @@ name: Job Watcher Bot
 
 on:
   schedule:
-    - cron: '*/1 * * * *' # Runs every 30 minutes
+    - cron: '*/5 * * * *' # Runs every 5 minutes
   workflow_dispatch: # Allows you to run it manually to test
 
 permissions:
