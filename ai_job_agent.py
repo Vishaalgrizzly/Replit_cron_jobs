@@ -124,7 +124,7 @@ SEARCH_URLS = {
     "Growth_Marketer": "https://englishjobs.fr/jobs/Growth_Marketer",
     "Product_Marketing_Manager": "https://englishjobs.fr/jobs/Product_Marketing_Manager",
 }
-STATE_FILE = "seen_jobs_ai.json"
+STATE_FILE = "seen_jobs.json"
 
 # Secrets
 BOT_TOKEN = os.environ.get("BOT_TOKEN")
