@@ -1,94 +1,71 @@
 import requests
 from bs4 import BeautifulSoup
-import json
 import os
-from datetime import datetime
 
 # --- CONFIGURATION ---
-# UPDATED: Now targeting only Marketing jobs
 URL = "https://englishjobs.fr/jobs/marketing"
-STATE_FILE = "seen_jobs.json"
-
 BOT_TOKEN = os.environ.get("BOT_TOKEN")
 CHAT_ID = os.environ.get("CHAT_ID")
 
 def send_telegram(message):
+    print(f"DEBUG: Attempting to send Telegram message: {message}")
     if not BOT_TOKEN or not CHAT_ID:
-        print("Error: Bot token or Chat ID missing.")
+        print("CRITICAL ERROR: Bot Token or Chat ID is missing from GitHub Secrets.")
         return
+    
     url = f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage"
     payload = {"chat_id": CHAT_ID, "text": message, "parse_mode": "HTML"}
+    
     try:
-        requests.post(url, json=payload)
+        r = requests.post(url, json=payload, timeout=10)
+        print(f"DEBUG: Telegram Response Code: {r.status_code}")
+        print(f"DEBUG: Telegram Response Body: {r.text}")
     except Exception as e:
-        print(f"Failed to send message: {e}")
-
-def load_seen_jobs():
-    if not os.path.exists(STATE_FILE):
-        return set()
-    try:
-        with open(STATE_FILE, "r") as f:
-            return set(json.load(f))
-    except:
-        return set()
-
-def save_seen_jobs(jobs):
-    with open(STATE_FILE, "w") as f:
-        json.dump(list(jobs), f)
-
-def fetch_jobs():
-    try:
-        # User-Agent header to look like a real browser (prevents blocking)
-        headers = {
-            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
-        }
-        print(f"Checking specific category: {URL}...")
-        r = requests.get(URL, headers=headers, timeout=20)
-        
-        if r.status_code != 200:
-            print(f"Failed to load page. Status: {r.status_code}")
-            return []
-
-        soup = BeautifulSoup(r.text, "html.parser")
-        jobs = []
-        
-        # Scrape all job links
-        for job in soup.select("a[href^='/job/']"):
-            title = job.get_text(strip=True)
-            link = "https://englishjobs.fr" + job["href"]
-            job_id = job["href"]
-            jobs.append((job_id, title, link))
-            
-        print(f"Found {len(jobs)} jobs on the page.")
-        return jobs
-
-    except Exception as e:
-        print(f"Error fetching jobs: {e}")
-        return []
+        print(f"CRITICAL ERROR: Failed to connect to Telegram: {e}")
 
 def main():
-    print(f"--- STARTING MARKETING JOB CHECK AT {datetime.now()} ---")
-    seen_jobs = load_seen_jobs()
-    jobs = fetch_jobs()
+    print("--- DIAGNOSTIC RUN STARTED ---")
     
-    new_jobs_found = 0
-    for job_id, title, link in jobs:
-        if job_id not in seen_jobs:
-            seen_jobs.add(job_id)
-            # Send Alert
-            send_telegram(
-                f"🎯 <b>New Marketing Job</b>\n\n"
-                f"<b>{title}</b>\n"
-                f"<a href='{link}'>View job</a>\n\n"
-                f"⏰ {datetime.now().strftime('%Y-%m-%d %H:%M')}"
-            )
-            new_jobs_found += 1
-            
-    if new_jobs_found > 0:
-        print(f"Sent alerts for {new_jobs_found} new jobs.")
-        save_seen_jobs(seen_jobs)
-    else:
-        print("No new marketing jobs found since last run.")
+    # TEST 1: Check Connection to You
+    send_telegram(f"⚠️ **Test Alert**\nIf you see this, your Bot Token and ID are correct.\nChecking website now...")
+
+    # TEST 2: Check Website Connection
+    headers = {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
+    }
+    
+    try:
+        print(f"DEBUG: Fetching URL: {URL}")
+        r = requests.get(URL, headers=headers, timeout=20)
+        print(f"DEBUG: Website Status Code: {r.status_code}")
+        
+        if r.status_code == 403:
+            print("CRITICAL FAILURE: The website is blocking GitHub (Error 403).")
+            send_telegram("❌ **Failure**: The website blocked the bot (Error 403).")
+            return
+
+        soup = BeautifulSoup(r.text, "html.parser")
+        title = soup.title.string.strip() if soup.title else "No Title"
+        print(f"DEBUG: Page Title: {title}")
+        
+        # TEST 3: Check for Links
+        # We print the first 500 characters of HTML to see what we actually got
+        print(f"DEBUG: Page HTML Snippet: {r.text[:500]}")
+        
+        job_links = soup.select("a[href^='/job/']")
+        print(f"DEBUG: Found {len(job_links)} job links with selector a[href^='/job/']")
+        
+        if len(job_links) == 0:
+            print("DEBUG: Trying fallback selector...")
+            all_links = soup.find_all("a")
+            print(f"DEBUG: Total 'a' tags found on page: {len(all_links)}")
+            send_telegram(f"⚠️ **Warning**: Connected to site, but found 0 jobs. (Found {len(all_links)} total links).")
+        else:
+            send_telegram(f"✅ **Success**: Found {len(job_links)} jobs available to scrape.")
+
+    except Exception as e:
+        print(f"CRITICAL ERROR: Script crashed: {e}")
+        send_telegram(f"❌ **Crash**: Script failed with error: {e}")
 
 if __name__ == "__main__":
     main()
