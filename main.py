@@ -22,6 +22,8 @@ SEARCH_URLS = {
 }
 
 STATE_FILE = "seen_jobs.json"
+
+# Secrets
 BOT_TOKEN = os.environ.get("BOT_TOKEN")
 CHAT_ID = os.environ.get("CHAT_ID")
 
@@ -32,7 +34,8 @@ def send_telegram(message):
     url = f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage"
     payload = {"chat_id": CHAT_ID, "text": message, "parse_mode": "HTML"}
     try:
-        requests.post(url, json=payload, timeout=10)
+        # Short timeout so we don't get stuck if Telegram is slow
+        requests.post(url, json=payload, timeout=5)
     except Exception as e:
         print(f"Failed to send message: {e}")
 
@@ -51,11 +54,14 @@ def save_seen_jobs(jobs):
 
 def fetch_jobs(category_name, url):
     try:
+        # Robust Headers
         headers = {
-            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+            "Accept-Language": "en-US,en;q=0.9"
         }
+        
         print(f"Checking {category_name} jobs...")
-        r = requests.get(url, headers=headers, timeout=20)
+        r = requests.get(url, headers=headers, timeout=15)
         
         if r.status_code != 200:
             print(f"Failed to load {category_name}. Status: {r.status_code}")
@@ -64,9 +70,12 @@ def fetch_jobs(category_name, url):
         soup = BeautifulSoup(r.text, "html.parser")
         jobs = []
         
+        # Select all job links
         for job in soup.find_all("a", href=True):
             if "/job/" in job["href"]:
                 title = job.get_text(strip=True)
+                
+                # Normalize Link
                 if job["href"].startswith("http"):
                     link = job["href"]
                 else:
@@ -74,11 +83,11 @@ def fetch_jobs(category_name, url):
                 
                 job_id = link 
                 
-                # Check for duplicates in current batch
+                # Avoid duplicates inside the same list
                 if not any(j[0] == job_id for j in jobs):
                     jobs.append((job_id, title, link))
             
-        print(f"Found {len(jobs)} jobs in {category_name}.")
+        print(f"Found {len(jobs)} total jobs in {category_name}.")
         return jobs
 
     except Exception as e:
@@ -86,35 +95,51 @@ def fetch_jobs(category_name, url):
         return []
 
 def main():
-    print(f"--- MULTI-TRACKER RUN AT {datetime.now()} ---")
+    start_time = datetime.now().strftime('%H:%M')
+    print(f"--- JOB WATCHER RUN STARTED AT {start_time} ---")
+    
+    # 1. Health Check Notification (Optional: Comment this out if it gets annoying)
+    # send_telegram(f"⏳ **Job Watcher Started** at {start_time}\nChecking {len(SEARCH_URLS)} categories...")
+
     seen_jobs = load_seen_jobs()
+    total_new_found = 0
     
-    total_new = 0
-    
-    # LOOP: Check every category in our list
+    # LOOP: Check every category
     for category, url in SEARCH_URLS.items():
+        
+        # 2. Safety Delay (Random 3-6 seconds between requests)
+        time.sleep(random.uniform(3, 6))
+        
         jobs = fetch_jobs(category, url)
+        category_new_count = 0
         
         for job_id, title, link in jobs:
             if job_id not in seen_jobs:
                 seen_jobs.add(job_id)
-                # Customized Alert with Category Name
+                # Send Alert
                 send_telegram(
                     f"🎯 <b>New {category} Job</b>\n\n"
                     f"<b>{title}</b>\n"
                     f"<a href='{link}'>View job</a>\n\n"
                     f"⏰ {datetime.now().strftime('%Y-%m-%d %H:%M')}"
                 )
-                total_new += 1
+                category_new_count += 1
+                total_new_found += 1
         
-        # Sleep for 2 seconds between requests to be polite to the server
-        time.sleep(2)
+        # 3. Crash-Proof Saving
+        # We save immediately after each category. 
+        # If the script crashes on "Sales", we won't lose the "Marketing" jobs we just found.
+        if category_new_count > 0:
+            print(f"Saved {category_new_count} new jobs for {category}.")
+            save_seen_jobs(seen_jobs)
 
-    if total_new > 0:
-        print(f"Sent alerts for {total_new} new jobs.")
-        save_seen_jobs(seen_jobs)
+    # 4. Summary Log
+    if total_new_found > 0:
+        print(f"✅ Run Complete. Sent {total_new_found} alerts.")
     else:
-        print("No new jobs found in any category.")
+        print("✅ Run Complete. No new jobs.")
+        # Optional: Send a 'Heartbeat' message to know it's alive
+        # send_telegram("✅ **Run Complete**: No new jobs found.")
 
 if __name__ == "__main__":
     main()
