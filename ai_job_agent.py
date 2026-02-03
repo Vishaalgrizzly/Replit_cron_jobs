@@ -124,7 +124,7 @@ SEARCH_URLS = {
     "Growth_Marketer": "https://englishjobs.fr/jobs/Growth_Marketer",
     "Product_Marketing_Manager": "https://englishjobs.fr/jobs/Product_Marketing_Manager",
 }
-STATE_FILE = "seen_jobs.json"
+STATE_FILE = "seen_jobs_ai.json"
 
 # Secrets
 BOT_TOKEN = os.environ.get("BOT_TOKEN")
@@ -230,6 +230,7 @@ def main():
 
     print("--- AI JOB AGENT STARTED ---")
     seen_jobs = load_seen_jobs()
+    start_count = len(seen_jobs)
     new_jobs_found = 0
     
     for category, url in SEARCH_URLS.items():
@@ -256,14 +257,26 @@ def main():
                     else:
                         print(f"Skipped {title} (Low Match)")
                         
+                    # Mark as seen so we don't pay to analyze it again
                     seen_jobs.add(link)
+                    
+                    # Polite delay
                     time.sleep(5) 
                     
         except Exception as e:
             print(f"Scraping Error: {e}")
 
-    if new_jobs_found > 0:
+    # --- THE FIX IS HERE ---
+    # We save the file UNCONDITIONALLY. 
+    # Even if we found 0 matches, we must save the list of "seen" jobs 
+    # so we don't re-check them next time.
+    if len(seen_jobs) > start_count:
         save_seen_jobs(seen_jobs)
+        print(f"Memory updated. (Seen {len(seen_jobs)} total jobs)")
+    else:
+        print("No new jobs scanned.")
+
+    if new_jobs_found > 0:
         print(f"Sent {new_jobs_found} AI reports.")
     else:
         print("Run Complete. No matches found this time.")
