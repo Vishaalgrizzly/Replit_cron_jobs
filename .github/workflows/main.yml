@@ -1,0 +1,41 @@
+name: Job Watcher Bot
+
+on:
+  schedule:
+    - cron: '*/30 * * * *' # Runs every 30 minutes
+  workflow_dispatch: # Allows you to run it manually to test
+
+permissions:
+  contents: write
+
+jobs:
+  run_scraper:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.9'
+
+      - name: Install dependencies
+        run: |
+          pip install requests beautifulsoup4
+
+      - name: Run Job Scraper
+        env:
+          BOT_TOKEN: ${{ secrets.BOT_TOKEN }}
+          CHAT_ID: ${{ secrets.CHAT_ID }}
+        run: python main.py
+
+      - name: Commit and Push if new jobs found
+        run: |
+          git config --global user.name "JobBot"
+          git config --global user.email "bot@noreply.github.com"
+          git add seen_jobs.json
+          # Only commit if the file has changed (i.e., new jobs found)
+          git commit -m "Update seen jobs" || exit 0
+          git push
