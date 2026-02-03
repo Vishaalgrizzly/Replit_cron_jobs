@@ -1,0 +1,6 @@
+- name: Run AI Agent
+        env:
+          BOT_TOKEN: ${{ secrets.BOT_TOKEN }}
+          CHAT_ID: ${{ secrets.CHAT_ID }}
+          OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }} # <--- UPDATED
+        run: python ai_job_agent.py
