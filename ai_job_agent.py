@@ -248,10 +248,18 @@ def main():
     else:
         print("No new jobs scanned.")
 
+    # ... inside main() function ...
+
     if new_jobs_found > 0:
         print(f"Sent {new_jobs_found} AI reports.")
+        send_telegram(f"🏁 **AI Batch Complete**: Analyzed {new_jobs_found} new jobs.")
     else:
         print("Run Complete. No matches found.")
+        # UNCOMMENT THIS LINE TO GET THE HEARTBEAT:
+        send_telegram("🤖 **AI Check Complete**: No new jobs to analyze.")
+
+if __name__ == "__main__":
+    main()
 
 if __name__ == "__main__":
     main()
