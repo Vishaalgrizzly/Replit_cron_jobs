@@ -120,9 +120,11 @@ def main():
             print(f"Saved {category_new_count} new jobs for {category}.")
             save_seen_jobs(seen_jobs)
 
-    if total_new_found > 0:
+   if total_new_found > 0:
         print(f"✅ Run Complete. Sent {total_new_found} alerts.")
     else:
+        # UNCOMMENT THIS LINE TO GET THE MESSAGE:
+        send_telegram("✅ Test Run Complete: No new jobs found.") 
         print("✅ Run Complete. No new jobs.")
 
 if __name__ == "__main__":
