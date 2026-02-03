@@ -4,8 +4,8 @@ import os
 
 # --- CONFIGURATION ---
 URL = "https://englishjobs.fr/jobs/marketing"
-BOT_TOKEN = os.environ.get("BOT_TOKEN")
-CHAT_ID = os.environ.get("CHAT_ID")
+BOT_TOKEN = os.environ.get("8339447368:AAHnRmvZyhV7nvKZ1ZtlX_7Xy3ZHETk2VQU")
+CHAT_ID = os.environ.get("781969503")
 
 def send_telegram(message):
     print(f"DEBUG: Attempting to send Telegram message: {message}")
