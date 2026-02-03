@@ -2,7 +2,7 @@ name: AI Job Agent
 
 on:
   schedule:
-    - cron: '30 */6 * * *' # Runs at 06:30, 12:30, 18:30...
+    - cron: '*/5 * * * *' # CHANGED: Now runs every 5 minutes
   workflow_dispatch:      # Allows manual testing
 
 permissions:
@@ -11,6 +11,7 @@ permissions:
 jobs:
   ai_job_hunt:
     runs-on: ubuntu-latest
+    timeout-minutes: 10 # Safety limit so it doesn't run forever
 
     steps:
       - name: Checkout code
@@ -36,7 +37,7 @@ jobs:
           git config --global user.name "AIBot"
           git config --global user.email "bot@noreply.github.com"
           
-          # SAFETY CHECK: If the python script didn't create the file, create an empty one
+          # Safety Check: Create file if missing
           if [ ! -f seen_jobs_ai.json ]; then
             echo "[]" > seen_jobs_ai.json
           fi
