@@ -131,7 +131,6 @@ BOT_TOKEN = os.environ.get("BOT_TOKEN")
 CHAT_ID = os.environ.get("CHAT_ID")
 OPENROUTER_API_KEY = os.environ.get("OPENROUTER_API_KEY")
 
-# Configure OpenRouter
 client = None
 if OPENROUTER_API_KEY:
     client = OpenAI(
@@ -152,61 +151,42 @@ def analyze_job_with_ai(job_title, job_link):
     print(f"🤖 AI Analyzing: {job_title}...")
     
     try:
-        # A. Scrape the Description
+        # Scrape Description
         headers = {"User-Agent": "Mozilla/5.0"}
         r = requests.get(job_link, headers=headers, timeout=10)
         soup = BeautifulSoup(r.text, "html.parser")
-        
         description_div = soup.find("div", class_="job-description") 
         if not description_div: description_div = soup.find("body")
-        job_text = description_div.get_text(separator="\n", strip=True)[:4000] # Increased token limit slightly
+        job_text = description_div.get_text(separator="\n", strip=True)[:4000]
         
-        # B. The "Career Coach" Prompt (Updated to use the detailed profile)
+        # PROMPT: Two Output Formats
         prompt = f"""
-        ACT AS: A Senior Technical Recruiter coaching Vishaal Babu.
-        
-        CONTEXT (Vishaal's Detailed Profile):
-        {json.dumps(USER_PROFILE, indent=2)}
-        
-        JOB TO ANALYZE:
-        Title: {job_title}
-        Description Snippet: {job_text}
+        ACT AS: A Career Coach for Vishaal Babu.
+        CONTEXT: {json.dumps(USER_PROFILE, indent=2)}
+        JOB: {job_title}
+        DESC: {job_text}
         
         TASK:
-        1. **Analyze Match % (0-100):** - Be strict on skills, but FLEXIBLE on "Years of Experience" (I am willing to take Mid-level roles).
-           - If the job requires French (Fluent/Native), penalize the score heavily (I am only A2).
-           
-        2. **Decision:**
-           - If Match < 50%, output ONLY the word "SKIP".
-           
-        3. **If Match > 50%, write a Telegram notification:**
-           
+        1. Analyze Match % (0-100). (Be flexible on years of experience, strict on French).
+        
+        2. IF MATCH > 50% (Good Job), output this format:
            🔥 **MATCH SCORE: [Score]%**
            **Role:** {job_title}
-           
-           💡 **Why you match:** [1 sentence connecting my specific Tech Stack (e.g. N8N/Python) to their needs]
-           
-           ⚠️ **Gap Analysis:** [Briefly mention if French is required or if I lack a specific tool]
-           
-           🏹 **The Hook (Cover Letter Intro):**
-           "[Draft a 'Golden Paragraph' (2-3 sentences) that matches my specific project to their problem. 
-           Example: 'At Calibraint, I managed a team of 5 to launch blockchain products...' or 'I used Python K-Means to segment traffic...' 
-           Use the MOST relevant achievement from my profile. Do not be generic.]"
-           
-           ❓ **Interview Prep:**
-           "Be ready to answer: [One specific, hard technical question based on the JD]"
+           💡 **Why:** [1 sentence summary]
+           ⚠️ **Gap:** [Any missing skill/language]
+           🏹 **Hook:** "[Draft 2-3 sentences connecting my N8N/Python/Growth metrics to their problem]"
+           ❓ **Prep:** "Ask yourself: [Hard Question]"
+
+        3. IF MATCH < 50% (Bad Job), output this "Mini Report" format:
+           ❄️ **LOW MATCH: [Score]%**
+           **Role:** {job_title}
+           🛑 **Reason:** [1 sentence explaining why (e.g. 'Requires Native French', 'Requires Java', 'Too Senior')].
         """
         
-        # C. Call OpenRouter
         completion = client.chat.completions.create(
             model="xiaomi/mimo-v2-flash:free", 
-            messages=[
-                {"role": "user", "content": prompt}
-            ],
-            extra_headers={
-                "HTTP-Referer": "https://github.com/vishaalgrizzly", 
-                "X-Title": "Job Hunter Bot",
-            },
+            messages=[{"role": "user", "content": prompt}],
+            extra_headers={"HTTP-Referer": "https://github.com/vishaalgrizzly", "X-Title": "Job Hunter Bot"},
         )
         return completion.choices[0].message.content.strip()
         
@@ -238,7 +218,6 @@ def main():
             print(f"Checking {category}...")
             r = requests.get(url, headers={"User-Agent": "Mozilla/5.0"}, timeout=10)
             soup = BeautifulSoup(r.text, "html.parser")
-            
             jobs = soup.find_all("a", href=True)
             
             for job in jobs:
@@ -248,38 +227,31 @@ def main():
                     
                     if link in seen_jobs: continue
                     
-                    # Call the AI
+                    # Call AI
                     ai_analysis = analyze_job_with_ai(title, link)
                     
-                    if ai_analysis and "SKIP" not in ai_analysis:
+                    # ALWAYS SEND (Transparency Mode)
+                    if ai_analysis:
                         send_telegram(f"{ai_analysis}\n\n🔗 [View Job]({link})")
                         new_jobs_found += 1
-                    else:
-                        print(f"Skipped {title} (Low Match)")
                         
-                    # Mark as seen so we don't pay to analyze it again
                     seen_jobs.add(link)
-                    
-                    # Polite delay
                     time.sleep(5) 
                     
         except Exception as e:
             print(f"Scraping Error: {e}")
 
-    # --- THE FIX IS HERE ---
-    # We save the file UNCONDITIONALLY. 
-    # Even if we found 0 matches, we must save the list of "seen" jobs 
-    # so we don't re-check them next time.
+    # ALWAYS SAVE MEMORY
     if len(seen_jobs) > start_count:
         save_seen_jobs(seen_jobs)
-        print(f"Memory updated. (Seen {len(seen_jobs)} total jobs)")
+        print(f"Memory updated. Total seen: {len(seen_jobs)}")
     else:
         print("No new jobs scanned.")
 
     if new_jobs_found > 0:
         print(f"Sent {new_jobs_found} AI reports.")
     else:
-        print("Run Complete. No matches found this time.")
+        print("Run Complete. No matches found.")
 
 if __name__ == "__main__":
     main()
