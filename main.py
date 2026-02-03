@@ -5,7 +5,7 @@ import os
 from datetime import datetime
 
 # --- CONFIGURATION ---
-URL = "https://englishjobs.fr/"
+URL = "https://englishjobs.fr/jobs/marketing"
 STATE_FILE = "seen_jobs.json"
 
 # We will fetch these from GitHub Secrets (Safe way)
