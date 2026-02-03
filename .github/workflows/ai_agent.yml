@@ -1,6 +1,39 @@
-- name: Run AI Agent
+name: AI Job Agent
+
+on:
+  schedule:
+    - cron: '30 */6 * * *' # Runs at 06:30, 12:30, 18:30...
+  workflow_dispatch:      # Allows manual testing
+
+permissions:
+  contents: write
+
+jobs:
+  ai_job_hunt:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.9'
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Run AI Agent
         env:
           BOT_TOKEN: ${{ secrets.BOT_TOKEN }}
           CHAT_ID: ${{ secrets.CHAT_ID }}
-          OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }} # <--- UPDATED
+          OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
         run: python ai_job_agent.py
+
+      - name: Commit Memory
+        run: |
+          git config --global user.name "AIBot"
+          git config --global user.email "bot@noreply.github.com"
+          git add seen_jobs_ai.json
+          git diff --quiet && git diff --staged --quiet || (git commit -m "Update AI memory" && git push)
