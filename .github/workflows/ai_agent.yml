@@ -35,5 +35,11 @@ jobs:
         run: |
           git config --global user.name "AIBot"
           git config --global user.email "bot@noreply.github.com"
+          
+          # SAFETY CHECK: If the python script didn't create the file, create an empty one
+          if [ ! -f seen_jobs_ai.json ]; then
+            echo "[]" > seen_jobs_ai.json
+          fi
+          
           git add seen_jobs_ai.json
           git diff --quiet && git diff --staged --quiet || (git commit -m "Update AI memory" && git push)
