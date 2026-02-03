@@ -111,7 +111,6 @@ USER_PROFILE = {
     
     "languages": ["English (Fluent/C2)", "French (A2 - Actively Learning)", "Hindi (Native)", "Tamil (Native)"]
 }
-}
 
 # --- 2. CONFIGURATION ---
 SEARCH_URLS = {
