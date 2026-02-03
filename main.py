@@ -120,12 +120,17 @@ def main():
             print(f"Saved {category_new_count} new jobs for {category}.")
             save_seen_jobs(seen_jobs)
 
-   if total_new_found > 0:
+   # 4. Summary Log & "Heartbeat" Message
+    if total_new_found > 0:
         print(f"✅ Run Complete. Sent {total_new_found} alerts.")
+        # Optional: Send a summary message after finding jobs
+        send_telegram(f"🏁 **Batch Complete**: Found {total_new_found} new jobs.")
     else:
-        # UNCOMMENT THIS LINE TO GET THE MESSAGE:
-        send_telegram("✅ Test Run Complete: No new jobs found.") 
         print("✅ Run Complete. No new jobs.")
+        # THIS IS THE LINE YOU WANT ENABLED:
+        send_telegram("✅ **Check Complete**: No new jobs found.")
 
+if __name__ == "__main__":
+    main()
 if __name__ == "__main__":
     main()
