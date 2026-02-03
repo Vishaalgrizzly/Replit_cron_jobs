@@ -3,12 +3,25 @@ from bs4 import BeautifulSoup
 import json
 import os
 from datetime import datetime
+import time
 
 # --- CONFIGURATION ---
-URL = "https://englishjobs.fr/jobs/marketing"
-STATE_FILE = "seen_jobs.json"
+# UPDATED: A Dictionary of "Role Name" -> "URL"
+# You can add as many as you want here!
+SEARCH_URLS = {
+    "Marketing": "https://englishjobs.fr/jobs/marketing",
+    "Content_Marketer": "https://englishjobs.fr/jobs/Content_Marketer",
+    "Content_Marketing": "https://englishjobs.fr/jobs/content_marketing",
+    "Community_Manager": "https://englishjobs.fr/jobs/community_manager", 
+    "DM_Manager": "https://englishjobs.fr/jobs/digital_marketing_manager", 
+    "Content_Marketing_Specialist": "https://englishjobs.fr/jobs/Content_Marketing_Specialist",  
+    "Content_Marketing_Manager": "https://englishjobs.fr/jobs/Content_Marketing_Manager",  
+    "Growth_Marketer": "https://englishjobs.fr/jobs/Growth_Marketer",
+    "Product_Marketing_Manager": "https://englishjobs.fr/jobs/Product_Marketing_Manager",
+    # Uncomment to add more
+}
 
-# We fetch these from the Secrets you just fixed
+STATE_FILE = "seen_jobs.json"
 BOT_TOKEN = os.environ.get("BOT_TOKEN")
 CHAT_ID = os.environ.get("CHAT_ID")
 
@@ -36,68 +49,72 @@ def save_seen_jobs(jobs):
     with open(STATE_FILE, "w") as f:
         json.dump(list(jobs), f)
 
-def fetch_jobs():
+def fetch_jobs(category_name, url):
     try:
         headers = {
             "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
         }
-        print(f"Fetching {URL}...")
-        r = requests.get(URL, headers=headers, timeout=20)
+        print(f"Checking {category_name} jobs...")
+        r = requests.get(url, headers=headers, timeout=20)
         
         if r.status_code != 200:
-            print(f"Failed to load page. Status: {r.status_code}")
+            print(f"Failed to load {category_name}. Status: {r.status_code}")
             return []
 
         soup = BeautifulSoup(r.text, "html.parser")
         jobs = []
         
-        # IMPROVED SELECTOR: Finds any link containing "/job/"
         for job in soup.find_all("a", href=True):
             if "/job/" in job["href"]:
                 title = job.get_text(strip=True)
-                
-                # Fix relative links
                 if job["href"].startswith("http"):
                     link = job["href"]
                 else:
                     link = "https://englishjobs.fr" + job["href"]
                 
-                # Use the link as the unique ID
                 job_id = link 
                 
-                # Filter out duplicates inside the list itself
+                # Check for duplicates in current batch
                 if not any(j[0] == job_id for j in jobs):
                     jobs.append((job_id, title, link))
             
-        print(f"Found {len(jobs)} jobs on the page.")
+        print(f"Found {len(jobs)} jobs in {category_name}.")
         return jobs
 
     except Exception as e:
-        print(f"Error fetching jobs: {e}")
+        print(f"Error fetching {category_name}: {e}")
         return []
 
 def main():
-    print(f"--- RUNNING CHECK AT {datetime.now()} ---")
+    print(f"--- MULTI-TRACKER RUN AT {datetime.now()} ---")
     seen_jobs = load_seen_jobs()
-    jobs = fetch_jobs()
     
-    new_jobs_found = 0
-    for job_id, title, link in jobs:
-        if job_id not in seen_jobs:
-            seen_jobs.add(job_id)
-            send_telegram(
-                f"🎯 <b>New Marketing Job</b>\n\n"
-                f"<b>{title}</b>\n"
-                f"<a href='{link}'>View job</a>\n\n"
-                f"⏰ {datetime.now().strftime('%Y-%m-%d %H:%M')}"
-            )
-            new_jobs_found += 1
-            
-    if new_jobs_found > 0:
-        print(f"Sent alerts for {new_jobs_found} new jobs.")
+    total_new = 0
+    
+    # LOOP: Check every category in our list
+    for category, url in SEARCH_URLS.items():
+        jobs = fetch_jobs(category, url)
+        
+        for job_id, title, link in jobs:
+            if job_id not in seen_jobs:
+                seen_jobs.add(job_id)
+                # Customized Alert with Category Name
+                send_telegram(
+                    f"🎯 <b>New {category} Job</b>\n\n"
+                    f"<b>{title}</b>\n"
+                    f"<a href='{link}'>View job</a>\n\n"
+                    f"⏰ {datetime.now().strftime('%Y-%m-%d %H:%M')}"
+                )
+                total_new += 1
+        
+        # Sleep for 2 seconds between requests to be polite to the server
+        time.sleep(2)
+
+    if total_new > 0:
+        print(f"Sent alerts for {total_new} new jobs.")
         save_seen_jobs(seen_jobs)
     else:
-        print("No new jobs found.")
+        print("No new jobs found in any category.")
 
 if __name__ == "__main__":
     main()
